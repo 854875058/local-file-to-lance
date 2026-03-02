@@ -123,15 +123,31 @@ def main_page():
                     'color: #1e40af; background: linear-gradient(135deg, #1e3a5f, #2563eb);'
                     '-webkit-background-clip: text; -webkit-text-fill-color: transparent;'
                 )
-        cpu = psutil.cpu_percent()
-        mem = psutil.virtual_memory().percent
+
+        # 系统资源监控（实时刷新）
         ui.label('系统资源').classes('text-caption text-grey-7')
+        cpu_label = ui.label('').classes('text-caption')
+        cpu_progress = ui.linear_progress(value=0, color='blue').classes('flex-grow')
+        mem_label = ui.label('').classes('text-caption')
+        mem_progress = ui.linear_progress(value=0, color='blue').classes('flex-grow')
+
+        def update_resources():
+            cpu = psutil.cpu_percent()
+            mem = psutil.virtual_memory().percent
+            cpu_label.text = f'CPU {cpu}%'
+            cpu_progress.value = cpu / 100
+            mem_label.text = f'内存 {mem}%'
+            mem_progress.value = mem / 100
+
+        update_resources()
+        ui.timer(3.0, update_resources)  # 每 3 秒刷新
+
         with ui.row().classes('w-full items-center q-gutter-xs'):
-            ui.label(f'CPU {cpu}%').classes('text-caption')
-            ui.linear_progress(value=cpu / 100, color='blue').classes('flex-grow')
+            cpu_label
+            cpu_progress
         with ui.row().classes('w-full items-center q-gutter-xs'):
-            ui.label(f'内存 {mem}%').classes('text-caption')
-            ui.linear_progress(value=mem / 100, color='blue').classes('flex-grow')
+            mem_label
+            mem_progress
         ui.separator().classes('q-my-sm')
 
         # 连接状态指示
@@ -166,8 +182,10 @@ def main_page():
             tab_dashboard = ui.tab('数据资产看板', icon='dashboard')
             tab_ingest = ui.tab('数据接入', icon='cloud_upload')
             tab_search = ui.tab('智能检索', icon='search')
+            tab_files = ui.tab('文件管理', icon='folder_managed')
             tab_s3 = ui.tab('对象存储浏览', icon='folder_open')
             tab_monitor = ui.tab('任务监控', icon='monitor_heart')
+            tab_logs = ui.tab('日志查看', icon='article')
             tab_diag = ui.tab('数据诊断', icon='build')
 
         with ui.tab_panels(tabs, value=tab_dashboard).classes('w-full'):
@@ -180,12 +198,18 @@ def main_page():
             with ui.tab_panel(tab_search):
                 _deferred_panel(_build_search)
 
+            with ui.tab_panel(tab_files):
+                _deferred_panel(_build_file_manager)
+
             # S3 浏览和任务监控不依赖模型/LanceDB
             with ui.tab_panel(tab_s3):
                 _build_s3_browser()
 
             with ui.tab_panel(tab_monitor):
                 _build_monitor()
+
+            with ui.tab_panel(tab_logs):
+                _build_logs()
 
             with ui.tab_panel(tab_diag):
                 _deferred_panel(_build_diagnose_wrapper)
@@ -684,6 +708,8 @@ def _build_search(models, tbl_text, tbl_image, tbl_files):
             query_input = ui.input('查询', placeholder='输入关键词：会议录音、视频内容、文档片段…').classes('flex-grow')
             page_size_select = ui.select([10, 20, 50], value=10, label='每页条数').style('min-width: 100px')
 
+    # 搜索按钮和 loading 状态
+    search_btn_container = ui.row().classes('w-full q-mt-sm')
     results_container = ui.column().classes('w-full q-mt-md')
     # 分页状态
     search_state = {'all_results': None, 'files_df': None, 'page': 0}
@@ -767,6 +793,13 @@ def _build_search(models, tbl_text, tbl_image, tbl_files):
         if not q:
             ui.notify('请输入查询内容', type='warning')
             return
+
+        # 显示 loading 状态
+        search_btn_container.clear()
+        with search_btn_container:
+            ui.spinner(size='sm', color='blue')
+            ui.label('检索中...').classes('text-caption text-grey-7')
+
         results_container.clear()
 
         loop = asyncio.get_running_loop()
@@ -802,10 +835,18 @@ def _build_search(models, tbl_text, tbl_image, tbl_files):
         search_state['all_results'] = res
         search_state['files_df'] = files_df
         search_state['page'] = 0
-        _render_page()
 
-    with ui.element('div').classes('w-full q-mt-sm'):
-        ui.button('检索', on_click=do_search, color='blue').props('unelevated')
+        # 恢复搜索按钮
+        search_btn_container.clear()
+        with search_btn_container:
+            ui.button('检索', icon='search', on_click=do_search, color='blue').props('unelevated')
+
+        _render_page()
+        ui.notify(f'找到 {len(res)} 条结果', type='positive')
+
+    # 初始化搜索按钮
+    with search_btn_container:
+        ui.button('检索', icon='search', on_click=do_search, color='blue').props('unelevated')
 
 
 def _render_preview(ext, file_bytes, text_full, r, idx, file_hash, doc_name,
@@ -947,28 +988,150 @@ def _build_s3_browser():
 
 
 def _build_monitor():
+    monitor_container = ui.column().classes('w-full')
+
+    def load_tasks():
+        monitor_container.clear()
+        with monitor_container:
+            with ui.element('div').classes('glass-card w-full'):
+                ui.label('最近 50 条任务执行记录').classes('text-caption text-grey-7 q-mb-sm')
+                rows = get_task_stats(50)
+                if rows:
+                    table_rows = [
+                        {
+                            '创建时间': r[6],
+                            '文件数': r[3],
+                            '成功数': r[4],
+                            '耗时(s)': round(r[5], 2) if r[5] else 0,
+                        }
+                        for r in rows
+                    ]
+                    columns = [
+                        {'name': '创建时间', 'label': '创建时间', 'field': '创建时间', 'align': 'left'},
+                        {'name': '文件数', 'label': '文件数', 'field': '文件数'},
+                        {'name': '成功数', 'label': '成功数', 'field': '成功数'},
+                        {'name': '耗时(s)', 'label': '耗时(s)', 'field': '耗时(s)'},
+                    ]
+                    ui.table(columns=columns, rows=table_rows).classes('w-full')
+                else:
+                    ui.label('暂无任务记录').classes('text-grey-6')
+
+    load_tasks()
+    ui.button('刷新', icon='refresh', on_click=load_tasks, color='blue').props('flat dense').classes('q-mt-sm')
+
+
+def _build_logs():
+    """日志查看器：显示 app.log 最后 500 行"""
+    log_container = ui.column().classes('w-full')
+
+    def load_logs():
+        log_container.clear()
+        with log_container:
+            with ui.element('div').classes('glass-card w-full'):
+                ui.label('应用日志（最后 500 行）').classes('text-caption text-grey-7 q-mb-sm')
+                try:
+                    if os.path.exists(LOG_PATH):
+                        with open(LOG_PATH, 'r', encoding='utf-8', errors='ignore') as f:
+                            lines = f.readlines()
+                        last_lines = lines[-500:] if len(lines) > 500 else lines
+                        log_text = ''.join(last_lines)
+                        ui.code(log_text).classes('w-full').style('max-height: 600px; overflow-y: auto; font-size: 0.85rem;')
+                    else:
+                        ui.label('日志文件不存在').classes('text-grey-6')
+                except Exception as e:
+                    ui.label(f'读取日志失败: {e}').classes('text-red-6')
+
+    load_logs()
+    ui.button('刷新日志', icon='refresh', on_click=load_logs, color='blue').props('flat dense').classes('q-mt-sm')
+
+
+def _build_file_manager(models, tbl_text, tbl_image, tbl_files):
+    """文件资产管理：浏览、筛选、删除文件"""
     with ui.element('div').classes('glass-card w-full'):
-        ui.label('最近 50 条任务执行记录').classes('text-caption text-grey-7 q-mb-sm')
-        rows = get_task_stats(50)
-        if rows:
-            table_rows = [
-                {
-                    '创建时间': r[6],
-                    '文件数': r[3],
-                    '成功数': r[4],
-                    '耗时(s)': round(r[5], 2) if r[5] else 0,
-                }
-                for r in rows
-            ]
-            columns = [
-                {'name': '创建时间', 'label': '创建时间', 'field': '创建时间', 'align': 'left'},
-                {'name': '文件数', 'label': '文件数', 'field': '文件数'},
-                {'name': '成功数', 'label': '成功数', 'field': '成功数'},
-                {'name': '耗时(s)', 'label': '耗时(s)', 'field': '耗时(s)'},
-            ]
-            ui.table(columns=columns, rows=table_rows).classes('w-full')
-        else:
-            ui.label('暂无任务记录').classes('text-grey-6')
+        ui.label('管理已入库的文件资产，支持按类型筛选、批量删除').classes('text-caption text-grey-7 q-mb-sm')
+        with ui.row().classes('w-full q-gutter-md items-end'):
+            type_filter = ui.select(
+                ['全部', 'pdf', 'docx', 'xlsx', 'csv', 'mp3', 'mp4', 'jpg', 'png'],
+                value='全部', label='类型筛选'
+            ).style('min-width: 120px')
+            page_size = ui.select([20, 50, 100], value=20, label='每页条数').style('min-width: 100px')
+
+    files_container = ui.column().classes('w-full q-mt-md')
+    state = {'page': 0, 'all_files': None}
+
+    def load_files():
+        try:
+            # 只加载元数据，不加载 file_bytes
+            df = tbl_files.search().select(["file_hash", "doc_name", "doc_type", "source_uri"]).limit(10000).to_pandas()
+            if type_filter.value != '全部' and not df.empty and 'doc_type' in df.columns:
+                df = df[df['doc_type'] == type_filter.value]
+            state['all_files'] = df
+            state['page'] = 0
+            render_page()
+        except Exception as e:
+            files_container.clear()
+            with files_container:
+                ui.label(f'加载文件列表失败: {e}').classes('text-red-6')
+
+    def render_page():
+        files_container.clear()
+        df = state['all_files']
+        if df is None or df.empty:
+            with files_container:
+                ui.label('无文件记录').classes('text-grey-6')
+            return
+
+        total = len(df)
+        ps = int(page_size.value)
+        page = state['page']
+        start = page * ps
+        end = min(start + ps, total)
+        page_df = df.iloc[start:end]
+
+        with files_container:
+            with ui.row().classes('w-full items-center q-gutter-md q-mb-md'):
+                ui.label(f'第 {start+1}-{end} 条，共 {total} 条').classes('text-caption text-grey-7')
+
+                def go_prev():
+                    if state['page'] > 0:
+                        state['page'] -= 1
+                        render_page()
+
+                def go_next():
+                    if end < total:
+                        state['page'] += 1
+                        render_page()
+
+                ui.button('上一页', on_click=go_prev, color='blue').props('flat dense').set_enabled(page > 0)
+                ui.button('下一页', on_click=go_next, color='blue').props('flat dense').set_enabled(end < total)
+
+            for idx, row in page_df.iterrows():
+                file_hash = row.get('file_hash', '')
+                doc_name = row.get('doc_name', '')
+                doc_type = row.get('doc_type', '')
+                source_uri = row.get('source_uri', '')
+
+                with ui.element('div').classes('glass-card w-full q-mb-sm'):
+                    with ui.row().classes('w-full items-center justify-between'):
+                        with ui.column().classes('flex-grow'):
+                            ui.label(f'{doc_name}').classes('text-weight-bold text-blue-9')
+                            ui.label(f'类型: {doc_type} | Hash: {file_hash[:16]}...').classes('text-caption text-grey-7')
+                            if source_uri:
+                                ui.label(f'URI: {source_uri}').classes('text-caption text-grey-6')
+
+                        async def do_delete(fh=file_hash, dn=doc_name):
+                            loop = asyncio.get_running_loop()
+                            ok = await loop.run_in_executor(
+                                None, lambda: delete_file_by_hash(fh, tbl_text, tbl_image, tbl_files))
+                            if ok:
+                                ui.notify(f'已删除: {dn}', type='positive')
+                                load_files()
+                            else:
+                                ui.notify(f'删除失败: {dn}', type='negative')
+
+                        ui.button('删除', icon='delete', on_click=do_delete, color='red').props('flat dense')
+
+    ui.button('加载文件列表', icon='refresh', on_click=load_files, color='blue').props('unelevated').classes('q-mt-sm')
 
 
 def _build_diagnose(tbl_text, tbl_image, tbl_files):
