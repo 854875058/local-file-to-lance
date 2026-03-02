@@ -6,9 +6,7 @@ DataVerse Pro - 多模态数据中台 (NiceGUI 版)
 
 import os
 import sys
-import time
 import logging
-import shutil
 import html
 import asyncio
 import uuid
@@ -980,9 +978,9 @@ def _build_diagnose(tbl_text, tbl_image, tbl_files):
         diag_container.clear()
         with diag_container:
             try:
-                text_df = tbl_text.to_pandas()
-                image_df = tbl_image.to_pandas()
-                files_df = tbl_files.to_pandas()
+                text_df = tbl_text.search().select(["file_hash"]).limit(1000000).to_pandas()
+                image_df = tbl_image.search().select(["file_hash"]).limit(1000000).to_pandas()
+                files_df = tbl_files.search().select(["file_hash"]).limit(1000000).to_pandas()
 
                 ui.html('<div class="section-title">数据统计</div>')
                 with ui.row().classes('w-full q-gutter-md'):

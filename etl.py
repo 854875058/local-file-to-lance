@@ -156,7 +156,12 @@ def process_pipeline(local_path, original_filename, models, tbl_text, tbl_image,
                     z.extractall(extract_folder)
             else:
                 with tarfile.open(local_path, "r") as t:
-                    t.extractall(extract_folder)
+                    # Python 3.12+ 需要 filter 参数防止路径穿越攻击
+                    import sys
+                    if sys.version_info >= (3, 12):
+                        t.extractall(extract_folder, filter='data')
+                    else:
+                        t.extractall(extract_folder)
 
             sub_files = []
             for root, _, files in os.walk(extract_folder):
@@ -459,7 +464,7 @@ def batch_process_local_files(file_paths, models, tbl_text, tbl_image, tbl_files
             # 异步实体抽取（成功入库的文本文件）
             if res.get("status") == "ok":
                 try:
-                    ext = name.split(".")[-1].lower()
+                    ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
                     if ext in CONTENT_EXTS:
                         content, _ = extract_content(local_path, ext, models)
                         if content and content.strip():
@@ -514,7 +519,7 @@ def sftp_task(host, port, user, password, path, models, tbl_text, tbl_image, tbl
                 continue
             total_files += 1
             try:
-                local_path = os.path.join(TEMP_DIR, f)
+                local_path = os.path.join(TEMP_DIR, f"{uuid.uuid4().hex[:8]}_{f}")
                 sftp.get(path.rstrip("/") + "/" + f, local_path)
                 local_fs.append((local_path, f))
                 if progress_callback:
@@ -529,7 +534,7 @@ def sftp_task(host, port, user, password, path, models, tbl_text, tbl_image, tbl
                 cnt += res["count"]
                 # 异步实体抽取
                 try:
-                    ext = name.split(".")[-1].lower()
+                    ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
                     if ext in CONTENT_EXTS:
                         content, _ = extract_content(local_path, ext, models)
                         if content and content.strip():
