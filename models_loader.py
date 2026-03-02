@@ -46,7 +46,7 @@ def _load_models():
 
 
 def load_models_cached():
-    """供 Streamlit st.cache_resource 使用，在 app 里包装一层"""
+    """加载 AI 模型（带缓存语义，供上层调用）"""
     return _load_models()
 
 

@@ -229,7 +229,7 @@ def _deferred_panel(build_fn):
                 status_msg = ui.label('正在连接后端服务...').classes('text-caption text-grey-7')
 
     async def do_load():
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         try:
             models, tbl_text, tbl_image, tbl_files = await loop.run_in_executor(None, _get_all)
         except Exception as e:
@@ -315,7 +315,7 @@ def _build_dashboard(models, tbl_text, tbl_image, tbl_files):
             # 文件类型分布
             ui.html('<div class="section-title">存量文件类型分布</div>')
             try:
-                files_df_dash = tbl_files.to_pandas()
+                files_df_dash = tbl_files.search().select(["file_hash", "doc_name", "doc_type", "source_uri"]).limit(100000).to_pandas()
             except Exception:
                 files_df_dash = pd.DataFrame()
             if not files_df_dash.empty and 'doc_type' in files_df_dash.columns:
@@ -342,7 +342,7 @@ def _build_dashboard(models, tbl_text, tbl_image, tbl_files):
 def _build_knowledge_graph(models, tbl_files):
     ui.html('<div class="section-title">文件知识图谱</div>')
     try:
-        files_df_kg = tbl_files.to_pandas()
+        files_df_kg = tbl_files.search().select(["file_hash", "doc_name", "doc_type", "source_uri", "text_full"]).limit(100000).to_pandas()
     except Exception:
         files_df_kg = pd.DataFrame()
 
@@ -450,7 +450,7 @@ def _build_similarity_graph(models, files_df_kg):
                 ui.label('正在计算文件相似度...').classes('text-caption text-grey-7')
 
     async def _compute_and_render():
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         try:
             vecs = await loop.run_in_executor(
                 None, lambda: np.array(models['text'].encode(texts))
@@ -573,7 +573,7 @@ def _build_ingest(models, tbl_text, tbl_image, tbl_files):
 
                 poll_timer = ui.timer(0.3, poll_progress)
 
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 succ, skip, dur, skipped_names = await loop.run_in_executor(
                     None,
                     lambda: batch_process_local_files(
@@ -641,7 +641,7 @@ def _build_ingest(models, tbl_text, tbl_image, tbl_files):
 
                 sftp_poll_timer = ui.timer(0.3, sftp_poll)
 
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
                 logs, skipped_names = await loop.run_in_executor(
                     None,
                     lambda: sftp_task(
@@ -771,7 +771,7 @@ def _build_search(models, tbl_text, tbl_image, tbl_files):
             return
         results_container.clear()
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
 
         def _search():
             if '文本' in search_mode.value:
@@ -787,8 +787,17 @@ def _build_search(models, tbl_text, tbl_image, tbl_files):
 
         res = await loop.run_in_executor(None, _search)
 
+        # 只加载命中 file_hash 对应的文件记录，避免全量加载 file_bytes
         try:
-            files_df = tbl_files.to_pandas()
+            if not res.empty and 'file_hash' in res.columns:
+                hit_hashes = res['file_hash'].dropna().unique().tolist()
+                if hit_hashes:
+                    wh = " OR ".join(f"file_hash = '{h.replace(chr(39), chr(39)*2)}'" for h in hit_hashes)
+                    files_df = tbl_files.search().where(wh).limit(len(hit_hashes)).to_pandas()
+                else:
+                    files_df = pd.DataFrame()
+            else:
+                files_df = pd.DataFrame()
         except Exception:
             files_df = pd.DataFrame()
 
@@ -843,7 +852,7 @@ def _render_preview(ext, file_bytes, text_full, r, idx, file_hash, doc_name,
     # 删除按钮
     if file_hash and tbl_text is not None and tbl_image is not None and tbl_files is not None:
         async def do_delete(fh=file_hash, dn=doc_name):
-            loop = asyncio.get_event_loop()
+            loop = asyncio.get_running_loop()
             ok = await loop.run_in_executor(
                 None, lambda: delete_file_by_hash(fh, tbl_text, tbl_image, tbl_files))
             if ok:

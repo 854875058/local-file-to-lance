@@ -130,7 +130,7 @@ def extract_content(path, ext, models):
 def process_pipeline(local_path, original_filename, models, tbl_text, tbl_image, tbl_files):
     if original_filename is None:
         original_filename = os.path.basename(local_path)
-    ext = original_filename.split(".")[-1].lower()
+    ext = original_filename.rsplit(".", 1)[-1].lower() if "." in original_filename else ""
 
     overwrite = False
     try:
@@ -292,7 +292,7 @@ def process_pipeline(local_path, original_filename, models, tbl_text, tbl_image,
                     # 这里用 update（若版本不支持则忽略，仍可下载原件）
                     try:
                         safe_hash = f_hash.replace("'", "''")
-                        tbl_files.where(f"file_hash = '{safe_hash}'").update({"text_full": content})
+                        tbl_files.update(where=f"file_hash = '{safe_hash}'", values={"text_full": content})
                         logger.info(f"files 表 text_full 更新成功: hash={f_hash}")
                     except Exception as e:
                         logger.warning(f"files 表 text_full 更新失败: {e}")
@@ -440,52 +440,6 @@ def extract_entities_llm(text, file_hash):
             logger.info(f"实体抽取完成: hash={file_hash}, 共 {len(entities)} 个实体")
     except Exception as e:
         logger.warning(f"实体抽取失败（不影响主流程）: {e}")
-
-
-def batch_process_files(files, models, tbl_text, tbl_image, tbl_files, progress_callback=None):
-    start = time.time()
-    total = len(files)
-    temp_files = []  # 记录临时文件，用于清理
-    results = []  # 收集所有结果
-
-    def process_one(f):
-        tp = os.path.join(TEMP_DIR, f"{uuid.uuid4().hex[:8]}_{f.name}")  # 添加随机前缀避免文件名冲突
-        temp_files.append(tp)
-        try:
-            with open(tp, "wb") as w:
-                w.write(f.getbuffer())
-            return process_pipeline(tp, f.name, models, tbl_text, tbl_image, tbl_files)
-        except Exception as e:
-            logger.error(f"处理文件失败: {f.name}, {e}")
-            return {"success": False, "msg": str(e), "count": 0, "status": "error"}
-
-    try:
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            futures = {executor.submit(process_one, f): f for f in files}
-            for i, future in enumerate(as_completed(futures)):
-                try:
-                    res = future.result()
-                    results.append(res)
-                    if progress_callback:
-                        progress_callback(i + 1, total, res["msg"])
-                except Exception as e:
-                    logger.error(f"获取任务结果失败: {e}")
-                    results.append({"success": False, "msg": str(e), "count": 0, "status": "error"})
-    finally:
-        # 清理临时文件
-        for tp in temp_files:
-            try:
-                if os.path.exists(tp):
-                    os.remove(tp)
-            except Exception as e:
-                logger.warning(f"清理临时文件失败: {tp}, {e}")
-
-    # 统计结果
-    succ = sum(r["count"] for r in results if r["status"] == "ok")
-    skip = sum(1 for r in results if r["status"] == "skipped")
-    dur = time.time() - start
-    insert_task_stat("batch", total, succ, dur)
-    return succ, skip, dur
 
 
 def batch_process_local_files(file_paths, models, tbl_text, tbl_image, tbl_files, progress_callback=None):
