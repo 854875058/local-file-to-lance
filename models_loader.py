@@ -32,15 +32,22 @@ def _load_models():
     whisper_cache = os.path.join(os.getenv("XDG_CACHE_HOME", os.path.join(os.path.expanduser("~"), ".cache")), "whisper")
     whisper_local = os.path.join(whisper_cache, "base.pt")
     if os.path.isfile(whisper_local):
-        # 传入文件路径而非模型名，whisper 会直接 open() 加载，不联网
         whisper_model = whisper.load_model(whisper_local)
     else:
         whisper_model = whisper.load_model("base")
 
+    def _load_st(name):
+        """优先本地缓存，失败则联网下载"""
+        try:
+            return SentenceTransformer(name, local_files_only=True)
+        except Exception:
+            logger.info(f"本地缓存未命中，联网加载模型: {name}")
+            return SentenceTransformer(name)
+
     return {
-        "text": SentenceTransformer("BAAI/bge-small-zh-v1.5", local_files_only=True),
-        "clip_text": SentenceTransformer("sentence-transformers/clip-ViT-B-32-multilingual-v1", local_files_only=True),
-        "clip_vision": SentenceTransformer("clip-ViT-B-32", local_files_only=True),
+        "text": _load_st("BAAI/bge-small-zh-v1.5"),
+        "clip_text": _load_st("sentence-transformers/clip-ViT-B-32-multilingual-v1"),
+        "clip_vision": _load_st("clip-ViT-B-32"),
         "whisper": whisper_model,
     }
 
