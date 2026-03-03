@@ -134,7 +134,7 @@ def main_page():
                     '-webkit-background-clip: text; -webkit-text-fill-color: transparent;'
                 )
 
-        # 系统资源监控（实时刷新）
+        # 系统资源监控
         ui.label('系统资源').classes('text-caption text-grey-7')
         cpu_label = ui.label('').classes('text-caption')
         cpu_progress = ui.linear_progress(value=0, color='blue').classes('flex-grow')
@@ -142,19 +142,14 @@ def main_page():
         mem_progress = ui.linear_progress(value=0, color='blue').classes('flex-grow')
 
         def update_resources():
-            try:
-                cpu = psutil.cpu_percent()
-                mem = psutil.virtual_memory().percent
-                cpu_label.text = f'CPU {cpu}%'
-                cpu_progress.value = cpu / 100
-                mem_label.text = f'内存 {mem}%'
-                mem_progress.value = mem / 100
-            except Exception:
-                # 客户端已断开，停止 timer
-                resource_timer.deactivate()
+            cpu = psutil.cpu_percent()
+            mem = psutil.virtual_memory().percent
+            cpu_label.text = f'CPU {cpu}%'
+            cpu_progress.value = cpu / 100
+            mem_label.text = f'内存 {mem}%'
+            mem_progress.value = mem / 100
 
         update_resources()
-        resource_timer = ui.timer(3.0, update_resources)
 
         with ui.row().classes('w-full items-center q-gutter-xs'):
             cpu_label
@@ -162,6 +157,7 @@ def main_page():
         with ui.row().classes('w-full items-center q-gutter-xs'):
             mem_label
             mem_progress
+        ui.button('', icon='refresh', on_click=update_resources).props('flat dense round size=xs').tooltip('刷新资源')
         ui.separator().classes('q-my-sm')
 
         # 连接状态指示
