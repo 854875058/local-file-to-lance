@@ -11,6 +11,7 @@ import html
 import asyncio
 import uuid
 import io
+import threading
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -45,36 +46,45 @@ _models = None
 _tables = None
 _models_error = None
 _tables_error = None
+_models_lock = threading.Lock()
+_tables_lock = threading.Lock()
 
 
 def _ensure_models():
-    """懒加载 AI 模型，失败允许重试"""
+    """懒加载 AI 模型，加锁防止并发加载导致 meta tensor 冲突"""
     global _models, _models_error
     if _models is not None:
         return _models
-    try:
-        _models = load_models_cached()
-        _models_error = None
-        return _models
-    except Exception as e:
-        _models_error = f'AI 模型加载失败: {e}'
-        logger.error(_models_error)
-        raise RuntimeError(_models_error)
+    with _models_lock:
+        # 双重检查
+        if _models is not None:
+            return _models
+        try:
+            _models = load_models_cached()
+            _models_error = None
+            return _models
+        except Exception as e:
+            _models_error = f'AI 模型加载失败: {e}'
+            logger.error(_models_error)
+            raise RuntimeError(_models_error)
 
 
 def _ensure_tables():
-    """懒加载 LanceDB 表，失败允许重试"""
+    """懒加载 LanceDB 表，加锁防止并发初始化"""
     global _tables, _tables_error
     if _tables is not None:
         return _tables
-    try:
-        _tables = get_lancedb_tables()
-        _tables_error = None
-        return _tables
-    except Exception as e:
-        _tables_error = f'LanceDB 连接失败（SeaweedFS 可能不可达）: {e}'
-        logger.error(_tables_error)
-        raise RuntimeError(_tables_error)
+    with _tables_lock:
+        if _tables is not None:
+            return _tables
+        try:
+            _tables = get_lancedb_tables()
+            _tables_error = None
+            return _tables
+        except Exception as e:
+            _tables_error = f'LanceDB 连接失败（SeaweedFS 可能不可达）: {e}'
+            logger.error(_tables_error)
+            raise RuntimeError(_tables_error)
 
 
 def _get_all():
@@ -928,6 +938,11 @@ def _build_s3_browser():
                 ui.label('S3 客户端未配置或连接失败。').classes('text-red-6')
             return
         try:
+            # 确保 bucket 存在
+            try:
+                s3.create_bucket(Bucket=bucket)
+            except Exception:
+                pass
             resp = s3.list_objects_v2(
                 Bucket=bucket,
                 Prefix=prefix_input.value or '',
