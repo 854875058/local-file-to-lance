@@ -697,10 +697,10 @@ def _build_ingest(models, tbl_text, tbl_image, tbl_files):
 
 def _handle_upload(e: events.UploadEventArguments, holder: dict):
     """将 NiceGUI 上传的文件保存到临时目录"""
-    name = e.name
+    name = e.file.name
     tp = os.path.join(TEMP_DIR, f'{uuid.uuid4().hex[:8]}_{name}')
     with open(tp, 'wb') as f:
-        f.write(e.content.read())
+        f.write(e.file.read())
     holder['files'].append((tp, name))
 
 
