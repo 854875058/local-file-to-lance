@@ -1134,17 +1134,75 @@ def _build_file_manager(models, tbl_text, tbl_image, tbl_files):
                             if source_uri:
                                 ui.label(f'URI: {source_uri}').classes('text-caption text-grey-6')
 
-                        async def do_delete(fh=file_hash, dn=doc_name):
-                            loop = asyncio.get_running_loop()
-                            ok = await loop.run_in_executor(
-                                None, lambda: delete_file_by_hash(fh, tbl_text, tbl_image, tbl_files))
-                            if ok:
-                                ui.notify(f'已删除: {dn}', type='positive')
-                                load_files()
-                            else:
-                                ui.notify(f'删除失败: {dn}', type='negative')
+                        with ui.row().classes('q-gutter-xs'):
+                            async def do_preview(fh=file_hash, dt=doc_type, dn=doc_name):
+                                loop = asyncio.get_running_loop()
+                                # 从 files 表加载文件内容
+                                def _load_file():
+                                    try:
+                                        wh = f"file_hash = '{fh.replace(chr(39), chr(39)*2)}'"
+                                        file_df = tbl_files.search().where(wh).limit(1).to_pandas()
+                                        if file_df.empty:
+                                            return None, None
+                                        return file_df.iloc[0].get('file_bytes'), file_df.iloc[0].get('text_full', '')
+                                    except Exception as e:
+                                        return None, str(e)
 
-                        ui.button('删除', icon='delete', on_click=do_delete, color='red').props('flat dense')
+                                file_bytes, text_full = await loop.run_in_executor(None, _load_file)
+
+                                if file_bytes is None:
+                                    ui.notify(f'无法加载文件: {text_full or "未找到"}', type='negative')
+                                    return
+
+                                # 显示预览对话框
+                                with ui.dialog() as dialog, ui.card().classes('w-full').style('max-width: 900px; max-height: 80vh;'):
+                                    ui.label(dn).classes('text-h6 text-weight-bold q-mb-md')
+
+                                    IMAGE_EXTS = {'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'}
+                                    AUDIO_EXTS = {'mp3', 'wav', 'm4a', 'flac', 'ogg'}
+                                    VIDEO_EXTS = {'mp4', 'webm', 'mov'}
+                                    TEXT_EXTS = {'txt', 'md', 'py', 'json', 'log', 'sh', 'js', 'sql', 'xml', 'yaml', 'ini', 'csv'}
+
+                                    ext = dt.lower()
+
+                                    if ext in IMAGE_EXTS:
+                                        import base64
+                                        b64 = base64.b64encode(file_bytes).decode()
+                                        ui.html(f'<img src="data:image/{ext};base64,{b64}" style="max-width:100%;max-height:600px;border-radius:8px;" />')
+                                    elif ext in AUDIO_EXTS:
+                                        import base64
+                                        b64 = base64.b64encode(file_bytes).decode()
+                                        ui.html(f'<audio controls style="width:100%;"><source src="data:audio/{ext};base64,{b64}" type="audio/{ext}"></audio>')
+                                    elif ext in VIDEO_EXTS:
+                                        import base64
+                                        b64 = base64.b64encode(file_bytes).decode()
+                                        ui.html(f'<video controls style="max-width:100%;max-height:500px;"><source src="data:video/{ext};base64,{b64}" type="video/{ext}"></video>')
+                                    elif ext in TEXT_EXTS or text_full:
+                                        content = text_full if text_full else file_bytes.decode('utf-8', errors='ignore')
+                                        ui.code(content[:10000]).classes('w-full').style('max-height: 500px; overflow-y: auto;')
+                                        if len(content) > 10000:
+                                            ui.label('（内容过长，仅显示前 10000 字符）').classes('text-caption text-grey-6')
+                                    else:
+                                        ui.label(f'不支持预览此类型文件: {ext}').classes('text-grey-6')
+                                        ui.label(f'文件大小: {len(file_bytes) / 1024:.2f} KB').classes('text-caption')
+
+                                    ui.button('关闭', on_click=dialog.close, color='blue').props('flat')
+
+                                dialog.open()
+
+                            ui.button('预览', icon='visibility', on_click=do_preview, color='blue').props('flat dense')
+
+                            async def do_delete(fh=file_hash, dn=doc_name):
+                                loop = asyncio.get_running_loop()
+                                ok = await loop.run_in_executor(
+                                    None, lambda: delete_file_by_hash(fh, tbl_text, tbl_image, tbl_files))
+                                if ok:
+                                    ui.notify(f'已删除: {dn}', type='positive')
+                                    load_files()
+                                else:
+                                    ui.notify(f'删除失败: {dn}', type='negative')
+
+                            ui.button('删除', icon='delete', on_click=do_delete, color='red').props('flat dense')
 
     ui.button('加载文件列表', icon='refresh', on_click=load_files, color='blue').props('unelevated').classes('q-mt-sm')
 
