@@ -9,7 +9,8 @@ from fastapi import APIRouter, UploadFile, File, BackgroundTasks
 from pydantic import BaseModel
 
 from config import TEMP_DIR
-from etl import process_files_batch
+from etl import batch_process_local_files
+from models_loader import load_models_cached, get_lancedb_tables
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -19,6 +20,19 @@ class UploadResponse(BaseModel):
     message: str
     file_count: int
     task_id: str = None
+
+def _process_files_task(temp_files):
+    """后台任务：处理上传的文件"""
+    try:
+        models = load_models_cached()
+        tbl_text, tbl_image, tbl_files = get_lancedb_tables()
+
+        file_paths = [path for path, _ in temp_files]
+        batch_process_local_files(file_paths, models, tbl_text, tbl_image, tbl_files)
+
+        logger.info(f"批量处理完成: {len(file_paths)} 个文件")
+    except Exception as e:
+        logger.error(f"批量处理失败: {e}", exc_info=True)
 
 @router.post("/batch", response_model=UploadResponse)
 async def upload_files(
@@ -44,7 +58,7 @@ async def upload_files(
 
         # 后台任务处理文件
         task_id = uuid.uuid4().hex[:12]
-        background_tasks.add_task(process_files_batch, temp_files, user_id=0)
+        background_tasks.add_task(_process_files_task, temp_files)
 
         return UploadResponse(
             success=True,

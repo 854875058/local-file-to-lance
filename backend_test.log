@@ -1,0 +1,26 @@
+D:\Anaconda3\Lib\site-packages\paramiko\pkey.py:82: CryptographyDeprecationWarning: TripleDES has been moved to cryptography.hazmat.decrepit.ciphers.algorithms.TripleDES and will be removed from this module in 48.0.0.
+  "cipher": algorithms.TripleDES,
+D:\Anaconda3\Lib\site-packages\paramiko\transport.py:219: CryptographyDeprecationWarning: Blowfish has been moved to cryptography.hazmat.decrepit.ciphers.algorithms.Blowfish and will be removed from this module in 45.0.0.
+  "class": algorithms.Blowfish,
+D:\Anaconda3\Lib\site-packages\paramiko\transport.py:243: CryptographyDeprecationWarning: TripleDES has been moved to cryptography.hazmat.decrepit.ciphers.algorithms.TripleDES and will be removed from this module in 48.0.0.
+  "class": algorithms.TripleDES,
+Traceback (most recent call last):
+  File "E:\朗驰\软研院\AI数据集项目开发\结构化数据与非结构化数据融合\本地文件转Lance格式Demo\backend\main.py", line 17, in <module>
+    from api import upload, search, files, dashboard, system
+  File "E:\朗驰\软研院\AI数据集项目开发\结构化数据与非结构化数据融合\本地文件转Lance格式Demo\backend\api\__init__.py", line 4, in <module>
+    from . import upload, search, files, dashboard, system
+  File "E:\朗驰\软研院\AI数据集项目开发\结构化数据与非结构化数据融合\本地文件转Lance格式Demo\backend\api\upload.py", line 12, in <module>
+    from etl import process_files_batch
+ImportError: cannot import name 'process_files_batch' from 'etl' (E:\朗驰\软研院\AI数据集项目开发\结构化数据与非结构化数据融合\本地文件转Lance格式Demo\etl.py)
+
+==================================================
+启动后端服务 (FastAPI)
+==================================================
+检查 Python 依赖...
+Python 依赖已满足
+
+后端地址: http://localhost:8090
+API 文档: http://localhost:8090/docs
+
+按 Ctrl+C 停止服务
+
