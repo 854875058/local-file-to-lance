@@ -191,8 +191,8 @@ def process_pipeline(local_path, original_filename, models, tbl_text, tbl_image,
             try:
                 safe_name = _sanitize_filename(original_filename)
                 cat = _category_for_ext(ext)
-                # S3 里"目录"本质是 key 前缀，按年月/日/类型分组
-                today = datetime.now().strftime("%Y-%m/%d")
+                # S3 里"目录"本质是 key 前缀，按日期/类型分组
+                today = datetime.now().strftime("%Y-%m-%d")
                 key = f"raw/{today}/{cat}/{uuid.uuid4().hex[:8]}_{safe_name}"
                 s3_client.upload_file(local_path, S3_CONFIG["raw_bucket"], key)
                 s3_uri = f"s3://{S3_CONFIG['raw_bucket']}/{key}"
