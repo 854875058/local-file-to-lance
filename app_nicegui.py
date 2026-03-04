@@ -331,12 +331,34 @@ def _build_dashboard(models, tbl_text, tbl_image, tbl_files):
             if trend:
                 df_trend = pd.DataFrame(trend)
                 chart_data = {
-                    'tooltip': {'trigger': 'axis'},
-                    'xAxis': {'type': 'category', 'data': df_trend['date'].tolist()},
-                    'yAxis': {'type': 'value'},
-                    'series': [{'data': df_trend['success_count'].tolist(), 'type': 'line',
-                                'smooth': True, 'areaStyle': {'color': 'rgba(37,99,235,0.10)'},
-                                'lineStyle': {'color': '#2563eb'}, 'itemStyle': {'color': '#2563eb'}}],
+                    'tooltip': {
+                        'trigger': 'axis',
+                        'formatter': '{b}<br/>成功处理: {c} 个文件'
+                    },
+                    'grid': {'left': '3%', 'right': '4%', 'bottom': '3%', 'containLabel': True},
+                    'xAxis': {
+                        'type': 'category',
+                        'data': df_trend['date'].tolist(),
+                        'boundaryGap': False,
+                        'axisLabel': {'rotate': 30, 'fontSize': 11}
+                    },
+                    'yAxis': {
+                        'type': 'value',
+                        'name': '文件数',
+                        'minInterval': 1,
+                        'axisLabel': {'fontSize': 11}
+                    },
+                    'series': [{
+                        'name': '成功处理',
+                        'data': df_trend['success_count'].tolist(),
+                        'type': 'line',
+                        'smooth': True,
+                        'symbol': 'circle',
+                        'symbolSize': 8,
+                        'areaStyle': {'color': 'rgba(37,99,235,0.10)'},
+                        'lineStyle': {'color': '#2563eb', 'width': 3},
+                        'itemStyle': {'color': '#2563eb'}
+                    }],
                 }
                 with ui.element('div').classes('glass-card'):
                     ui.echart(chart_data).classes('w-full').style('height: 280px')
@@ -353,11 +375,40 @@ def _build_dashboard(models, tbl_text, tbl_image, tbl_files):
             if not files_df_dash.empty and 'doc_type' in files_df_dash.columns:
                 type_counts = files_df_dash['doc_type'].fillna('未知').value_counts()
                 chart_bar = {
-                    'tooltip': {'trigger': 'axis'},
-                    'xAxis': {'type': 'category', 'data': type_counts.index.tolist()},
-                    'yAxis': {'type': 'value'},
-                    'series': [{'data': type_counts.values.tolist(), 'type': 'bar',
-                                'itemStyle': {'color': '#3b82f6', 'borderRadius': [6, 6, 0, 0]}}],
+                    'tooltip': {
+                        'trigger': 'axis',
+                        'axisPointer': {'type': 'shadow'},
+                        'formatter': '{b}<br/>文件数: {c}'
+                    },
+                    'grid': {'left': '3%', 'right': '4%', 'bottom': '3%', 'containLabel': True},
+                    'xAxis': {
+                        'type': 'category',
+                        'data': type_counts.index.tolist(),
+                        'axisLabel': {'fontSize': 11, 'interval': 0}
+                    },
+                    'yAxis': {
+                        'type': 'value',
+                        'name': '文件数',
+                        'minInterval': 1,
+                        'axisLabel': {'fontSize': 11}
+                    },
+                    'series': [{
+                        'name': '文件数量',
+                        'data': type_counts.values.tolist(),
+                        'type': 'bar',
+                        'barWidth': '50%',
+                        'itemStyle': {
+                            'color': '#3b82f6',
+                            'borderRadius': [6, 6, 0, 0]
+                        },
+                        'label': {
+                            'show': True,
+                            'position': 'top',
+                            'fontSize': 12,
+                            'fontWeight': 'bold',
+                            'color': '#1e3a5f'
+                        }
+                    }],
                 }
                 with ui.element('div').classes('glass-card'):
                     ui.echart(chart_bar).classes('w-full').style('height: 260px')
