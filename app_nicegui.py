@@ -695,12 +695,12 @@ def _build_ingest(models, tbl_text, tbl_image, tbl_files):
             ui.button('开始采集', on_click=do_sftp, color='blue').props('unelevated')
 
 
-def _handle_upload(e: events.UploadEventArguments, holder: dict):
+async def _handle_upload(e: events.UploadEventArguments, holder: dict):
     """将 NiceGUI 上传的文件保存到临时目录"""
     name = e.file.name
     tp = os.path.join(TEMP_DIR, f'{uuid.uuid4().hex[:8]}_{name}')
     with open(tp, 'wb') as f:
-        f.write(e.file.read())
+        f.write(await e.file.read())
     holder['files'].append((tp, name))
 
 
