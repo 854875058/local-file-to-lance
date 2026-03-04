@@ -18,46 +18,69 @@
 
 ## 快速开始
 
-### 1. 安装依赖
+### 使用 start.py 脚本（推荐，跨平台）
 
-**后端依赖**
+**开发模式（同时启动前后端）**
+```bash
+python start.py --dev
+```
+- 后端: http://localhost:8090
+- 前端: http://localhost:3000
+
+**仅启动后端**
+```bash
+python start.py --backend
+```
+
+**仅启动前端**
+```bash
+python start.py --frontend
+```
+
+**生产模式（构建前端并启动）**
+```bash
+python start.py --production
+```
+访问 http://localhost:8090
+
+### 手动启动（可选）
+
+**1. 安装依赖**
+
+后端依赖：
 ```bash
 pip install fastapi uvicorn python-multipart
 ```
 
-**前端依赖**
+前端依赖：
 ```bash
 cd frontend
 npm install
 ```
 
-### 2. 启动服务
+**2. 启动服务**
 
-**开发模式（前后端分离）**
-
-终端 1 - 启动后端：
+开发模式 - 终端 1 启动后端：
 ```bash
 cd backend
 python main.py
 ```
 后端运行在 http://localhost:8090
 
-终端 2 - 启动前端：
+开发模式 - 终端 2 启动前端：
 ```bash
 cd frontend
 npm run dev
 ```
 前端运行在 http://localhost:3000
 
-**生产模式（前端构建后集成）**
-
-1. 构建前端：
+生产模式 - 构建前端：
 ```bash
 cd frontend
 npm run build
 ```
 
-2. 启动后端（会自动服务前端静态文件）：
+生产模式 - 启动后端（会自动服务前端静态文件）：
 ```bash
 cd backend
 python main.py
