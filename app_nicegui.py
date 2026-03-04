@@ -328,8 +328,10 @@ def _build_dashboard(models, tbl_text, tbl_image, tbl_files):
             # 近 7 天趋势
             ui.html('<div class="section-title">近 7 天接入趋势</div>')
             trend = get_task_trend(7)
+            logger.info(f"Dashboard trend data: {trend}")
             if trend:
                 df_trend = pd.DataFrame(trend)
+                logger.info(f"Rendering trend chart with {len(df_trend)} data points")
                 chart_data = {
                     'tooltip': {
                         'trigger': 'axis',
@@ -361,8 +363,10 @@ def _build_dashboard(models, tbl_text, tbl_image, tbl_files):
                     }],
                 }
                 with ui.element('div').classes('glass-card'):
-                    ui.echart(chart_data).classes('w-full').style('height: 280px')
+                    ui.label(f'数据点: {len(df_trend)} | 日期: {df_trend["date"].tolist()}').classes('text-caption text-grey-6 q-mb-sm')
+                    ui.echart(chart_data).classes('w-full').style('height: 280px; min-height: 280px;')
             else:
+                logger.warning("No trend data available")
                 with ui.element('div').classes('glass-card'):
                     ui.label('暂无近 7 天任务数据，接入数据后将显示趋势图。').classes('text-grey-6')
 
@@ -370,10 +374,12 @@ def _build_dashboard(models, tbl_text, tbl_image, tbl_files):
             ui.html('<div class="section-title">存量文件类型分布</div>')
             try:
                 files_df_dash = tbl_files.search().select(["file_hash", "doc_name", "doc_type", "source_uri"]).limit(100000).to_pandas()
-            except Exception:
+            except Exception as e:
+                logger.error(f"Failed to load files for type distribution: {e}")
                 files_df_dash = pd.DataFrame()
             if not files_df_dash.empty and 'doc_type' in files_df_dash.columns:
                 type_counts = files_df_dash['doc_type'].fillna('未知').value_counts()
+                logger.info(f"Rendering file type chart with {len(type_counts)} types: {type_counts.to_dict()}")
                 chart_bar = {
                     'tooltip': {
                         'trigger': 'axis',
@@ -411,8 +417,10 @@ def _build_dashboard(models, tbl_text, tbl_image, tbl_files):
                     }],
                 }
                 with ui.element('div').classes('glass-card'):
-                    ui.echart(chart_bar).classes('w-full').style('height: 260px')
+                    ui.label(f'文件类型: {len(type_counts)} 种 | 总计: {type_counts.sum()} 个文件').classes('text-caption text-grey-6 q-mb-sm')
+                    ui.echart(chart_bar).classes('w-full').style('height: 260px; min-height: 260px;')
             else:
+                logger.warning("No file type data available")
                 with ui.element('div').classes('glass-card'):
                     ui.label('暂无文件类型分布数据。').classes('text-grey-6')
 
