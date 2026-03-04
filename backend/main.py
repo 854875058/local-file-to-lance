@@ -50,10 +50,16 @@ app.include_router(files.router, prefix="/api/files", tags=["文件管理"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["仪表盘"])
 app.include_router(system.router, prefix="/api/system", tags=["系统监控"])
 
-# 静态文件服务（前端构建产物）
+@app.get("/api/health")
+async def health_check():
+    """健康检查接口"""
+    return {"status": "ok", "service": "DataVerse Pro API"}
+
+# 静态文件服务（前端构建产物）- 必须在所有 API 路由之后
 frontend_dist = ROOT_DIR / "frontend" / "dist"
 if frontend_dist.exists():
     app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
+    logger.info(f"前端静态文件服务已启用: {frontend_dist}")
 
 @app.on_event("startup")
 async def startup_event():
@@ -81,11 +87,6 @@ async def startup_event():
             logger.error(f"✗ 资源加载失败: {e}")
 
     threading.Thread(target=load_resources, daemon=True).start()
-
-@app.get("/api/health")
-async def health_check():
-    """健康检查接口"""
-    return {"status": "ok", "service": "DataVerse Pro API"}
 
 if __name__ == "__main__":
     import uvicorn
