@@ -37,10 +37,10 @@ if errorlevel 1 (
 echo.
 echo [3/3] 启动生产服务...
 echo.
-echo 服务地址: http://localhost:8080
-echo API 文档: http://localhost:8080/docs
+echo 服务地址: http://localhost:8090
+echo API 文档: http://localhost:8090/docs
 echo.
-echo 前端已构建并集成到后端，访问 http://localhost:8080 即可
+echo 前端已构建并集成到后端，访问 http://localhost:8090 即可
 echo.
 echo 按 Ctrl+C 停止服务
 echo.

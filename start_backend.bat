@@ -16,8 +16,8 @@ if errorlevel 1 (
 
 echo [2/2] 启动 FastAPI 服务...
 echo.
-echo 后端地址: http://localhost:8080
-echo API 文档: http://localhost:8080/docs
+echo 后端地址: http://localhost:8090
+echo API 文档: http://localhost:8090/docs
 echo.
 echo 按 Ctrl+C 停止服务
 echo.

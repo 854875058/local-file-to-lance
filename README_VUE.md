@@ -40,7 +40,7 @@ npm install
 cd backend
 python main.py
 ```
-后端运行在 http://localhost:8080
+后端运行在 http://localhost:8090
 
 终端 2 - 启动前端：
 ```bash
@@ -63,7 +63,7 @@ cd backend
 python main.py
 ```
 
-访问 http://localhost:8080
+访问 http://localhost:8090
 
 ## 项目结构
 
@@ -96,7 +96,7 @@ python main.py
 
 ## API 文档
 
-启动后端后访问：http://localhost:8080/docs
+启动后端后访问：http://localhost:8090/docs
 
 ## 功能特性
 
@@ -125,7 +125,7 @@ python main.py
 ## 故障排查
 
 **前端无法连接后端**
-- 检查后端是否启动：http://localhost:8080/api/health
+- 检查后端是否启动：http://localhost:8090/api/health
 - 检查 Vite 代理配置：`frontend/vite.config.js`
 
 **图表不显示**

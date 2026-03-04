@@ -26,7 +26,7 @@ if not exist "node_modules" (
 echo [2/2] 启动 Vite 开发服务器...
 echo.
 echo 前端地址: http://localhost:3000
-echo 后端代理: http://localhost:8080
+echo 后端代理: http://localhost:8090
 echo.
 echo 按 Ctrl+C 停止服务
 echo.
