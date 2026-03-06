@@ -22,15 +22,16 @@ class UploadResponse(BaseModel):
     task_id: str = None
 
 def _process_files_task(temp_files):
-    """后台任务：处理上传的文件"""
+    """后台任务：处理上传的文件
+    temp_files: list of (local_path, original_filename) 元组
+    """
     try:
         models = load_models_cached()
         tbl_text, tbl_image, tbl_files = get_lancedb_tables()
 
-        file_paths = [path for path, _ in temp_files]
-        batch_process_local_files(file_paths, models, tbl_text, tbl_image, tbl_files)
+        batch_process_local_files(temp_files, models, tbl_text, tbl_image, tbl_files)
 
-        logger.info(f"批量处理完成: {len(file_paths)} 个文件")
+        logger.info(f"批量处理完成: {len(temp_files)} 个文件")
     except Exception as e:
         logger.error(f"批量处理失败: {e}", exc_info=True)
 
@@ -56,7 +57,7 @@ async def upload_files(
             temp_files.append((temp_path, file.filename))
             logger.info(f"文件已保存: {file.filename} -> {temp_path}")
 
-        # 后台任务处理文件
+        # 后台任务处理文件（temp_files 已是 (path, filename) 元组列表）
         task_id = uuid.uuid4().hex[:12]
         background_tasks.add_task(_process_files_task, temp_files)
 
